@@ -14,11 +14,17 @@ class ClaudeClient(private val apiKey: String, val model: String) {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    fun ask(userMessage: String, systemPrompt: String? = null, maxTokens: Int = 2048): String {
+    fun ask(
+        userMessage: String,
+        systemPrompt: String? = null,
+        maxTokens: Int = 2048,
+        temperature: Double? = null
+    ): String {
         val body = JSONObject().apply {
             put("model", model)
             put("max_tokens", maxTokens)
             if (systemPrompt != null) put("system", systemPrompt.trim())
+            if (temperature != null) put("temperature", temperature)
             put("messages", JSONArray().put(JSONObject().apply {
                 put("role", "user")
                 put("content", userMessage)

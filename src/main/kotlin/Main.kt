@@ -8,20 +8,31 @@ fun main() {
     val apiKey = dotenv()["ANTHROPIC_API_KEY"] ?: error("Задайте ANTHROPIC_API_KEY в src/.env")
     val claude = ClaudeClient(apiKey, MODEL)
 
-    Printer.header(Prompts.QUESTION, MODEL)
+    Printer.temperatureHeader(Prompts.WAIFU_QUESTION, MODEL)
 
-    val a1 = claude.ask(Prompts.QUESTION)
-    Printer.section(1, "БАЗОВЫЙ", "Вопрос отправлен без каких-либо инструкций — чистый запрос", a1)
+    fun safeAsk(temperature: Double): Pair<String?, String?> = try {
+        claude.ask(Prompts.WAIFU_QUESTION, temperature = temperature) to null
+    } catch (e: Exception) {
+        null to (e.message ?: "Неизвестная ошибка")
+    }
 
-    val a2 = claude.ask(Prompts.QUESTION, systemPrompt = Prompts.STEP_BY_STEP_SYSTEM)
-    Printer.section(2, "ПОШАГОВЫЙ", "Системный промпт: \"Решай пошагово\" — форсирует структурное мышление", a2)
+    val (r0, e0) = safeAsk(0.0)
+    Printer.temperatureSection(1, 0.0, r0, e0)
 
-    val a3 = claude.ask(Prompts.OPTIMIZED)
-    Printer.section(3, "ОПТИМИЗИРОВАННЫЙ ПРОМПТ", "Роль эксперта + 10 структурных блоков + требование конкретных цен", a3)
+    val (r07, e07) = safeAsk(0.7)
+    Printer.temperatureSection(2, 0.7, r07, e07)
 
-    val a4 = claude.ask(Prompts.EXPERTS, maxTokens = 4096)
-    Printer.section(4, "ГРУППА ЭКСПЕРТОВ", "Аналитик + Инженер-механик + Эндуро гонщик — каждый со своей стороны", a4)
+    // temperature=1.2 выходит за диапазон [0.0; 1.0] — API вернёт ошибку 422
+    val (r12, e12) = safeAsk(1.2)
+    Printer.temperatureSection(3, 1.2, r12, e12)
 
-    val a5 = claude.ask(Prompts.compare(a1, a2, a3, a4), maxTokens = 2048)
-    Printer.comparison(a5)
+    val comparison = claude.ask(
+        Prompts.temperatureCompare(
+            r0 ?: "[ОШИБКА API: $e0]",
+            r07 ?: "[ОШИБКА API: $e07]",
+            r12 ?: "[ОШИБКА API: $e12]"
+        ),
+        maxTokens = 2048
+    )
+    Printer.temperatureComparison(comparison)
 }

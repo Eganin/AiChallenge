@@ -6,26 +6,33 @@ object Printer {
     private val SEP = "═".repeat(WIDTH)
     private val LINE = "─".repeat(WIDTH)
 
-    fun header(question: String, model: String) {
+    fun temperatureHeader(question: String, model: String) {
         println(SEP)
-        println("  AI CHALLENGE 3 — 4 подхода к одному вопросу")
+        println("  AI CHALLENGE — Temperature эксперимент")
         println("  Вопрос: $question")
         println("  Модель: $model")
+        println("  Тестируем temperature: 0.0 | 0.7 | 1.2")
         println(SEP)
     }
 
-    fun section(num: Int, typeName: String, description: String, text: String) {
+    fun temperatureSection(num: Int, temperature: Double, text: String?, error: String?) {
         println("\n$SEP")
-        println("  ЗАПРОС #$num | Тип: $typeName")
-        println("  Описание: $description")
+        println("  ЗАПРОС #$num | temperature = $temperature")
+        if (temperature > 1.0) {
+            println("  ⚠  ВНИМАНИЕ: $temperature выходит за допустимый диапазон [0.0; 1.0]")
+        }
         println(SEP)
-        println(text)
+        if (error != null) {
+            println("  [ОШИБКА API] $error")
+        } else {
+            println(text ?: "")
+        }
         println(LINE)
     }
 
-    fun comparison(text: String) {
+    fun temperatureComparison(text: String) {
         println("\n$SEP")
-        println("  СРАВНИТЕЛЬНЫЙ АНАЛИЗ ЧЕТЫРЁХ ПОДХОДОВ (от Claude API)")
+        println("  СРАВНИТЕЛЬНЫЙ АНАЛИЗ ПО TEMPERATURE (от Claude API)")
         println(SEP)
         println(text)
         println(LINE)
