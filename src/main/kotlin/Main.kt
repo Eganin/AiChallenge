@@ -2,37 +2,48 @@ package org.example
 
 import io.github.cdimascio.dotenv.dotenv
 
-private const val MODEL = "claude-haiku-4-5-20251001"
+// Anthropic models: weak / medium / strong
+private const val HAIKU_MODEL = "claude-haiku-4-5-20251001"
+private const val SONNET_MODEL = "claude-sonnet-4-6"
+private const val OPUS_MODEL = "claude-opus-4-6"
 
 fun main() {
     val apiKey = dotenv()["ANTHROPIC_API_KEY"] ?: error("Задайте ANTHROPIC_API_KEY в src/.env")
-    val claude = ClaudeClient(apiKey, MODEL)
 
-    Printer.temperatureHeader(Prompts.WAIFU_QUESTION, MODEL)
+    PricingProvider.load()
 
-    fun safeAsk(temperature: Double): Pair<String?, String?> = try {
-        claude.ask(Prompts.WAIFU_QUESTION, temperature = temperature) to null
-    } catch (e: Exception) {
-        null to (e.message ?: "Неизвестная ошибка")
-    }
+    val question = Prompts.DESIGN_PATTERN_QUESTION
+    Printer.modelBenchmarkHeader(question, PricingProvider.loadedFrom)
 
-    val (r0, e0) = safeAsk(0.0)
-    Printer.temperatureSection(1, 0.0, r0, e0)
+    val haiku = ClaudeClient(apiKey, HAIKU_MODEL)
+    val sonnet = ClaudeClient(apiKey, SONNET_MODEL)
+    val opus = ClaudeClient(apiKey, OPUS_MODEL)
 
-    val (r07, e07) = safeAsk(0.7)
-    Printer.temperatureSection(2, 0.7, r07, e07)
+    // ── Запрос #1 — слабая модель (Haiku) ────────────────────────────────
+    println("\n  Отправляем запрос к слабой модели ($HAIKU_MODEL)...")
+    val weakResult = haiku.ask(question)
+    val weakCost = PricingProvider.calculateCost(HAIKU_MODEL, weakResult.inputTokens, weakResult.outputTokens)
+    Printer.modelResult(1, "слабая", HAIKU_MODEL, weakResult, weakCost)
 
-    // temperature=1.2 выходит за диапазон [0.0; 1.0] — API вернёт ошибку 422
-    val (r12, e12) = safeAsk(1.2)
-    Printer.temperatureSection(3, 1.2, r12, e12)
+    // ── Запрос #2 — средняя модель (Sonnet) ───────────────────────────────
+    println("\n  Отправляем запрос к средней модели ($SONNET_MODEL)...")
+    val mediumResult = sonnet.ask(question)
+    val mediumCost = PricingProvider.calculateCost(SONNET_MODEL, mediumResult.inputTokens, mediumResult.outputTokens)
+    Printer.modelResult(2, "средняя", SONNET_MODEL, mediumResult, mediumCost)
 
-    val comparison = claude.ask(
-        Prompts.temperatureCompare(
-            r0 ?: "[ОШИБКА API: $e0]",
-            r07 ?: "[ОШИБКА API: $e07]",
-            r12 ?: "[ОШИБКА API: $e12]"
-        ),
-        maxTokens = 2048
+    // ── Запрос #3 — сильная модель (Opus) ────────────────────────────────
+    println("\n  Отправляем запрос к сильной модели ($OPUS_MODEL)...")
+    val strongResult = opus.ask(question)
+    val strongCost = PricingProvider.calculateCost(OPUS_MODEL, strongResult.inputTokens, strongResult.outputTokens)
+    Printer.modelResult(3, "сильная", OPUS_MODEL, strongResult, strongCost)
+
+    // ── Сравнение через API (Sonnet) ──────────────────────────────────────
+    println("\n  Отправляем все три ответа на сравнение (через $SONNET_MODEL)...")
+    val comparisonPrompt = Prompts.modelCompare(
+        HAIKU_MODEL, weakResult.text, weakResult.totalTokens, weakResult.durationMs, weakCost,
+        SONNET_MODEL, mediumResult.text, mediumResult.totalTokens, mediumResult.durationMs, mediumCost,
+        OPUS_MODEL, strongResult.text, strongResult.totalTokens, strongResult.durationMs, strongCost
     )
-    Printer.temperatureComparison(comparison)
+    val comparison = sonnet.ask(comparisonPrompt, maxTokens = 2048)
+    Printer.modelComparison(comparison.text)
 }

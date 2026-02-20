@@ -6,33 +6,32 @@ object Printer {
     private val SEP = "═".repeat(WIDTH)
     private val LINE = "─".repeat(WIDTH)
 
-    fun temperatureHeader(question: String, model: String) {
+    // ── Model benchmark (Challenge 1.5) ──────────────────────────────────
+
+    fun modelBenchmarkHeader(question: String, pricingSource: String) {
         println(SEP)
-        println("  AI CHALLENGE — Temperature эксперимент")
+        println("  AI CHALLENGE — Сравнение моделей")
         println("  Вопрос: $question")
-        println("  Модель: $model")
-        println("  Тестируем temperature: 0.0 | 0.7 | 1.2")
+        println("  Модели: Haiku (слабая) | Sonnet (средняя) | Opus (сильная)")
+        println("  Прайс:  $pricingSource")
         println(SEP)
     }
 
-    fun temperatureSection(num: Int, temperature: Double, text: String?, error: String?) {
+    fun modelResult(num: Int, tier: String, model: String, result: AiResponse, cost: Double) {
         println("\n$SEP")
-        println("  ЗАПРОС #$num | temperature = $temperature")
-        if (temperature > 1.0) {
-            println("  ⚠  ВНИМАНИЕ: $temperature выходит за допустимый диапазон [0.0; 1.0]")
-        }
+        println("  ОТВЕТ #$num | $tier модель — $model")
+        println(LINE)
+        println("  Время:   ${result.durationMs} мс")
+        println("  Токены:  input=${result.inputTokens} | output=${result.outputTokens} | total=${result.totalTokens}")
+        println("  Стоимость: \$${"%.6f".format(cost)}")
         println(SEP)
-        if (error != null) {
-            println("  [ОШИБКА API] $error")
-        } else {
-            println(text ?: "")
-        }
+        println(result.text)
         println(LINE)
     }
 
-    fun temperatureComparison(text: String) {
+    fun modelComparison(text: String) {
         println("\n$SEP")
-        println("  СРАВНИТЕЛЬНЫЙ АНАЛИЗ ПО TEMPERATURE (от Claude API)")
+        println("  СРАВНИТЕЛЬНЫЙ АНАЛИЗ МОДЕЛЕЙ (от Claude API)")
         println(SEP)
         println(text)
         println(LINE)
