@@ -11,6 +11,7 @@ class ConversationSessionTest {
     // We can't mock without a mocking library, so we use a lambda-based stub.
     private fun makeSession(
         systemPrompt: String? = null,
+        windowSize: Int = 0,
         fakeReply: (List<Message>) -> String = { "reply" }
     ): ConversationSession {
         val stubClient = object : ClaudeClient("fake-key", "fake-model") {
@@ -18,7 +19,7 @@ class ConversationSessionTest {
                 return fakeReply(messages)
             }
         }
-        return ConversationSession(stubClient, systemPrompt)
+        return ConversationSession(stubClient, systemPrompt, windowSize)
     }
 
     @Test
@@ -68,5 +69,44 @@ class ConversationSessionTest {
         val session = makeSession(fakeReply = { "hello back" })
         val result = session.chat("hello")
         assertEquals("hello back", result)
+    }
+
+    @Test
+    fun `chat sends only windowSize messages when history exceeds window`() {
+        var capturedMessages: List<Message> = emptyList()
+        val session = makeSession(windowSize = 2, fakeReply = { msgs ->
+            capturedMessages = msgs
+            "ok"
+        })
+        session.chat("first")   // history after: [u1, a1]
+        session.chat("second")  // before ask: history=[u1,a1,u2], takeLast(2)=[a1,u2]
+
+        assertEquals(2, capturedMessages.size)
+        assertEquals(Message("assistant", "ok"), capturedMessages[0])
+        assertEquals(Message("user", "second"), capturedMessages[1])
+    }
+
+    @Test
+    fun `full history is stored even when window limits API calls`() {
+        val session = makeSession(windowSize = 2, fakeReply = { "ok" })
+        session.chat("first")
+        session.chat("second")
+
+        assertEquals(4, session.history.size)
+    }
+
+    @Test
+    fun `windowSize of 0 sends full history`() {
+        var capturedMessages: List<Message> = emptyList()
+        val session = makeSession(windowSize = 0, fakeReply = { msgs ->
+            capturedMessages = msgs
+            "ok"
+        })
+        session.chat("first")
+        session.chat("second")
+        session.chat("third")
+        // Before third ask: history = [u1,a1,u2,a2,u3] → 5 messages
+
+        assertEquals(5, capturedMessages.size)
     }
 }
