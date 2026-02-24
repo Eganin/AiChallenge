@@ -8,21 +8,25 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class ClaudeClient(private val apiKey: String, val model: String) {
+open class ClaudeClient(private val apiKey: String, val model: String) {
 
     private val httpClient = OkHttpClient.Builder()
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    fun ask(userMessage: String, systemPrompt: String? = null, maxTokens: Int = 2048): String {
+    open fun ask(messages: List<Message>, systemPrompt: String? = null, maxTokens: Int = 2048): String {
         val body = JSONObject().apply {
             put("model", model)
             put("max_tokens", maxTokens)
             if (systemPrompt != null) put("system", systemPrompt.trim())
-            put("messages", JSONArray().put(JSONObject().apply {
-                put("role", "user")
-                put("content", userMessage)
-            }))
+            val arr = JSONArray()
+            messages.forEach { msg ->
+                arr.put(JSONObject().apply {
+                    put("role", msg.role)
+                    put("content", msg.content)
+                })
+            }
+            put("messages", arr)
         }
         val request = Request.Builder()
             .url("https://api.anthropic.com/v1/messages")
