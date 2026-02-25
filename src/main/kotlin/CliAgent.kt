@@ -44,6 +44,16 @@ class CliAgent(apiKey: String, model: String = "claude-haiku-4-5-20251001") {
                         repository.appendMessages(record.id, session.history.takeLast(2), savedCount)
                         savedCount += 2
                         println("\nАгент: $reply\n")
+                        val last = session.lastUsage
+                        val total = session.sessionUsage
+                        val lastCost = PricingProvider.costUsd(client.model, last)
+                        val totalCost = PricingProvider.costUsd(client.model, total)
+                        val lastCostStr = lastCost?.let { " (${PricingProvider.formatCost(it)})" } ?: ""
+                        val totalCostStr = totalCost?.let { " (${PricingProvider.formatCost(it)})" } ?: ""
+                        println(
+                            "Токены — запрос: вход=${last.inputTokens}, выход=${last.outputTokens}$lastCostStr" +
+                            " | сессия: вход=${total.inputTokens}, выход=${total.outputTokens}$totalCostStr\n"
+                        )
                     }
                 }
             }

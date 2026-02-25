@@ -12,11 +12,12 @@ class ConversationSessionTest {
     private fun makeSession(
         systemPrompt: String? = null,
         windowSize: Int = 0,
-        fakeReply: (List<Message>) -> String = { "reply" }
+        fakeReply: (List<Message>) -> String = { "reply" },
+        fakeUsage: TokenUsage = TokenUsage(10, 5)
     ): ConversationSession {
         val stubClient = object : ClaudeClient("fake-key", "fake-model") {
-            override fun ask(messages: List<Message>, systemPrompt: String?, maxTokens: Int): String {
-                return fakeReply(messages)
+            override fun ask(messages: List<Message>, systemPrompt: String?, maxTokens: Int): ClaudeResponse {
+                return ClaudeResponse(fakeReply(messages), fakeUsage)
             }
         }
         return ConversationSession(stubClient, systemPrompt, windowSize)
@@ -108,5 +109,29 @@ class ConversationSessionTest {
         // Before third ask: history = [u1,a1,u2,a2,u3] → 5 messages
 
         assertEquals(5, capturedMessages.size)
+    }
+
+    @Test
+    fun `lastUsage reflects tokens from most recent call`() {
+        val session = makeSession(fakeUsage = TokenUsage(42, 7))
+        session.chat("hello")
+        assertEquals(TokenUsage(42, 7), session.lastUsage)
+    }
+
+    @Test
+    fun `sessionUsage accumulates tokens across multiple calls`() {
+        val session = makeSession(fakeUsage = TokenUsage(10, 5))
+        session.chat("first")
+        session.chat("second")
+        assertEquals(TokenUsage(20, 10), session.sessionUsage)
+    }
+
+    @Test
+    fun `reset clears token usage`() {
+        val session = makeSession(fakeUsage = TokenUsage(10, 5))
+        session.chat("hello")
+        session.reset()
+        assertEquals(TokenUsage(0, 0), session.lastUsage)
+        assertEquals(TokenUsage(0, 0), session.sessionUsage)
     }
 }

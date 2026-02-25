@@ -14,7 +14,7 @@ open class ClaudeClient(private val apiKey: String, val model: String) {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    open fun ask(messages: List<Message>, systemPrompt: String? = null, maxTokens: Int = 2048): String {
+    open fun ask(messages: List<Message>, systemPrompt: String? = null, maxTokens: Int = 2048): ClaudeResponse {
         val body = JSONObject().apply {
             put("model", model)
             put("max_tokens", maxTokens)
@@ -39,7 +39,14 @@ open class ClaudeClient(private val apiKey: String, val model: String) {
         return httpClient.newCall(request).execute().use { response ->
             val raw = response.body!!.string()
             if (!response.isSuccessful) error("HTTP ${response.code}: $raw")
-            JSONObject(raw).getJSONArray("content").getJSONObject(0).getString("text")
+            val json = JSONObject(raw)
+            val text = json.getJSONArray("content").getJSONObject(0).getString("text")
+            val usageJson = json.getJSONObject("usage")
+            val usage = TokenUsage(
+                inputTokens = usageJson.getInt("input_tokens"),
+                outputTokens = usageJson.getInt("output_tokens")
+            )
+            ClaudeResponse(text, usage)
         }
     }
 }
