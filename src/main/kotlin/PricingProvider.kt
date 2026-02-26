@@ -8,7 +8,8 @@ import java.util.concurrent.TimeUnit
 
 data class ModelPricing(
     val inputCostPerToken: Double,
-    val outputCostPerToken: Double
+    val outputCostPerToken: Double,
+    val maxContextTokens: Int = 200_000
 )
 
 object PricingProvider {
@@ -17,16 +18,16 @@ object PricingProvider {
         "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 
     private val FALLBACK = mapOf(
-        "claude-haiku-4-5"  to ModelPricing(1.00 / 1_000_000,  5.00 / 1_000_000),
-        "claude-3-5-haiku"  to ModelPricing(0.80 / 1_000_000,  4.00 / 1_000_000),
-        "claude-3-haiku"    to ModelPricing(0.25 / 1_000_000,  1.25 / 1_000_000),
-        "claude-sonnet-4"   to ModelPricing(3.00 / 1_000_000, 15.00 / 1_000_000),
-        "claude-3-5-sonnet" to ModelPricing(3.00 / 1_000_000, 15.00 / 1_000_000),
-        "claude-opus-4-6"   to ModelPricing(5.00 / 1_000_000, 25.00 / 1_000_000),
-        "claude-opus-4-5"   to ModelPricing(5.00 / 1_000_000, 25.00 / 1_000_000),
-        "claude-opus-4-1"   to ModelPricing(15.0 / 1_000_000, 75.00 / 1_000_000),
-        "claude-opus-4"     to ModelPricing(15.0 / 1_000_000, 75.00 / 1_000_000),
-        "claude-3-opus"     to ModelPricing(15.0 / 1_000_000, 75.00 / 1_000_000),
+        "claude-haiku-4-5"  to ModelPricing(1.00 / 1_000_000,  5.00 / 1_000_000, 200_000),
+        "claude-3-5-haiku"  to ModelPricing(0.80 / 1_000_000,  4.00 / 1_000_000, 200_000),
+        "claude-3-haiku"    to ModelPricing(0.25 / 1_000_000,  1.25 / 1_000_000, 200_000),
+        "claude-sonnet-4"   to ModelPricing(3.00 / 1_000_000, 15.00 / 1_000_000, 200_000),
+        "claude-3-5-sonnet" to ModelPricing(3.00 / 1_000_000, 15.00 / 1_000_000, 200_000),
+        "claude-opus-4-6"   to ModelPricing(5.00 / 1_000_000, 25.00 / 1_000_000, 200_000),
+        "claude-opus-4-5"   to ModelPricing(5.00 / 1_000_000, 25.00 / 1_000_000, 200_000),
+        "claude-opus-4-1"   to ModelPricing(15.0 / 1_000_000, 75.00 / 1_000_000, 200_000),
+        "claude-opus-4"     to ModelPricing(15.0 / 1_000_000, 75.00 / 1_000_000, 200_000),
+        "claude-3-opus"     to ModelPricing(15.0 / 1_000_000, 75.00 / 1_000_000, 200_000),
     )
 
     private val httpClient = OkHttpClient.Builder()
@@ -50,7 +51,8 @@ object PricingProvider {
                 val input = obj.optDouble("input_cost_per_token", Double.NaN)
                 val output = obj.optDouble("output_cost_per_token", Double.NaN)
                 if (!input.isNaN() && !output.isNaN()) {
-                    result[key] = ModelPricing(input, output)
+                    val maxCtx = obj.optInt("max_input_tokens", 200_000)
+                    result[key] = ModelPricing(input, output, maxCtx)
                 }
             }
             result
@@ -77,6 +79,9 @@ object PricingProvider {
         return usage.inputTokens * pricing.inputCostPerToken +
                usage.outputTokens * pricing.outputCostPerToken
     }
+
+    fun getContextWindow(model: String): Int =
+        getPricing(model)?.maxContextTokens ?: 200_000
 
     fun formatCost(usd: Double): String = when {
         usd < 0.001 -> "$" + "%.6f".format(usd).replace(',', '.')

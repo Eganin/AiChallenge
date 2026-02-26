@@ -7,11 +7,10 @@ import kotlin.test.assertTrue
 
 class ConversationSessionTest {
 
-    // A fake ClaudeClient replacement — we create a subclass that overrides ask()
-    // We can't mock without a mocking library, so we use a lambda-based stub.
     private fun makeSession(
         systemPrompt: String? = null,
-        windowSize: Int = 0,
+        tailSize: Int = 0,
+        summaryEvery: Int = 0,
         fakeReply: (List<Message>) -> String = { "reply" },
         fakeUsage: TokenUsage = TokenUsage(10, 5)
     ): ConversationSession {
@@ -20,7 +19,7 @@ class ConversationSessionTest {
                 return ClaudeResponse(fakeReply(messages), fakeUsage)
             }
         }
-        return ConversationSession(stubClient, systemPrompt, windowSize)
+        return ConversationSession(stubClient, systemPrompt, tailSize, summaryEvery)
     }
 
     @Test
@@ -73,9 +72,9 @@ class ConversationSessionTest {
     }
 
     @Test
-    fun `chat sends only windowSize messages when history exceeds window`() {
+    fun `chat sends only tailSize messages when history exceeds tail`() {
         var capturedMessages: List<Message> = emptyList()
-        val session = makeSession(windowSize = 2, fakeReply = { msgs ->
+        val session = makeSession(tailSize = 2, summaryEvery = 0, fakeReply = { msgs ->
             capturedMessages = msgs
             "ok"
         })
@@ -88,8 +87,8 @@ class ConversationSessionTest {
     }
 
     @Test
-    fun `full history is stored even when window limits API calls`() {
-        val session = makeSession(windowSize = 2, fakeReply = { "ok" })
+    fun `full history is stored even when tail limits API calls`() {
+        val session = makeSession(tailSize = 2, summaryEvery = 0, fakeReply = { "ok" })
         session.chat("first")
         session.chat("second")
 
@@ -97,9 +96,9 @@ class ConversationSessionTest {
     }
 
     @Test
-    fun `windowSize of 0 sends full history`() {
+    fun `tailSize of 0 sends full history`() {
         var capturedMessages: List<Message> = emptyList()
-        val session = makeSession(windowSize = 0, fakeReply = { msgs ->
+        val session = makeSession(tailSize = 0, summaryEvery = 0, fakeReply = { msgs ->
             capturedMessages = msgs
             "ok"
         })

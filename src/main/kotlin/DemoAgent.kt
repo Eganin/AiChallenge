@@ -18,7 +18,7 @@ class DemoAgent(private val client: ClaudeClient) {
     }
 
     fun runShortDemo(): ConversationSession {
-        val session = ConversationSession(client, windowSize = 0)
+        val session = ConversationSession(client, tailSize = 0, summaryEvery = 0)
         val messages = listOf(
             "Как называется столица Франции?",
             "Расскажи одну интересную историческую деталь об этом городе.",
@@ -37,7 +37,8 @@ class DemoAgent(private val client: ClaudeClient) {
         val session = ConversationSession(
             client,
             systemPrompt = "Ты историк. Всегда заканчивай свой ответ одним вопросом, чтобы продолжить беседу.",
-            windowSize = 0
+            tailSize = 0,
+            summaryEvery = 0
         )
         var nextMessage = "Давай обсудим историю Римской империи. Начни с основания."
         repeat(15) {
@@ -60,7 +61,7 @@ class DemoAgent(private val client: ClaudeClient) {
         // "a " ≈ 1 token — sending ~210 000 tokens, limit is 200 000
         val bigMessage = "a ".repeat(targetTokens)
         println("Отправляем сообщение ~$targetTokens токенов (лимит модели claude-haiku-4-5: 200 000)...")
-        val session = ConversationSession(client, windowSize = 0)
+        val session = ConversationSession(client, tailSize = 0, summaryEvery = 0)
         try {
             session.chat(bigMessage)
             println("НЕОЖИДАННО: запрос прошёл без ошибки.")

@@ -17,10 +17,12 @@ class SessionRepository(private val dbPath: String = "agent.db") {
         connection.createStatement().use { stmt ->
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS sessions (
-                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name         TEXT UNIQUE NOT NULL,
-                    system_prompt TEXT,
-                    created_at   TEXT NOT NULL
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name             TEXT UNIQUE NOT NULL,
+                    system_prompt    TEXT,
+                    created_at       TEXT NOT NULL,
+                    summary          TEXT,
+                    summarized_up_to INTEGER NOT NULL DEFAULT 0
                 )
             """.trimIndent())
             stmt.executeUpdate("""
@@ -32,6 +34,13 @@ class SessionRepository(private val dbPath: String = "agent.db") {
                     position   INTEGER NOT NULL
                 )
             """.trimIndent())
+        }
+        // Migration: add columns to existing DBs that predate this schema
+        listOf(
+            "ALTER TABLE sessions ADD COLUMN summary TEXT",
+            "ALTER TABLE sessions ADD COLUMN summarized_up_to INTEGER NOT NULL DEFAULT 0"
+        ).forEach { ddl ->
+            try { connection.createStatement().use { it.executeUpdate(ddl) } } catch (_: Exception) {}
         }
     }
 
@@ -100,11 +109,35 @@ class SessionRepository(private val dbPath: String = "agent.db") {
     }
 
 
+    fun loadSummaryState(sessionId: Long): Pair<String?, Int> {
+        connection.prepareStatement(
+            "SELECT summary, summarized_up_to FROM sessions WHERE id = ?"
+        ).use { stmt ->
+            stmt.setLong(1, sessionId)
+            stmt.executeQuery().use { rs ->
+                if (rs.next()) return rs.getString("summary") to rs.getInt("summarized_up_to")
+            }
+        }
+        return null to 0
+    }
+
+    fun updateSummaryState(sessionId: Long, summary: String?, summarizedUpTo: Int) {
+        connection.prepareStatement(
+            "UPDATE sessions SET summary = ?, summarized_up_to = ? WHERE id = ?"
+        ).use { stmt ->
+            stmt.setString(1, summary)
+            stmt.setInt(2, summarizedUpTo)
+            stmt.setLong(3, sessionId)
+            stmt.executeUpdate()
+        }
+    }
+
     fun clearMessages(sessionId: Long) {
         connection.prepareStatement("DELETE FROM messages WHERE session_id = ?").use { stmt ->
             stmt.setLong(1, sessionId)
             stmt.executeUpdate()
         }
+        updateSummaryState(sessionId, null, 0)
     }
 
     fun deleteSession(sessionId: Long) {
