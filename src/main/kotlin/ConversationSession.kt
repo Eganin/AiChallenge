@@ -4,12 +4,9 @@ package org.example
 class ConversationSession(
     private val client: ClaudeClient,
     private val systemPrompt: String? = null,
-    tailSize: Int = 5,
-    summaryEvery: Int = 5
+    val strategy: ContextStrategy
 ) {
-    val contextManager = ContextManager(client, tailSize, summaryEvery)
-
-    val history: List<Message> get() = contextManager.fullHistory
+    val history: List<Message> get() = strategy.fullHistory
 
     var lastUsage = TokenUsage(0, 0)
         private set
@@ -18,10 +15,10 @@ class ConversationSession(
         private set
 
     fun chat(userMessage: String): String {
-        contextManager.addMessage(Message("user", userMessage))
-        val contextMessages = contextManager.buildContextMessages()
+        strategy.onUserMessage(Message("user", userMessage))
+        val contextMessages = strategy.buildContextMessages()
         val response = client.ask(contextMessages, systemPrompt)
-        contextManager.addMessage(Message("assistant", response.text))
+        strategy.onAssistantMessage(Message("assistant", response.text))
         lastUsage = response.usage
         sessionUsage = TokenUsage(
             inputTokens = sessionUsage.inputTokens + response.usage.inputTokens,
@@ -31,7 +28,7 @@ class ConversationSession(
     }
 
     fun reset() {
-        contextManager.reset()
+        strategy.reset()
         lastUsage = TokenUsage(0, 0)
         sessionUsage = TokenUsage(0, 0)
     }
